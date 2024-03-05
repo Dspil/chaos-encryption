@@ -122,7 +122,7 @@ def LSB3(x):
     return x % 8
 
 
-def encrypt(K, img, R):
+def encrypt(K, img):
     """ Encryption algorithm.
     For simplicity, we assume that images are 256x256 grayscale.
     img is the input image as a list of lists of values 0-255
@@ -152,7 +152,6 @@ def encrypt(K, img, R):
     I = reduce(lambda a,b: a+b, img) # flatten image to generate the sequence I
     Iprime = [I[i+j] for j in range(r) for i in range(0, len(I) - j, r)] # permute I to generate I'
     B = [[[Iprime[i*64 + 8 * j + k] for k in range(8)] for j in range(8)] for i in range(num)] # generate the blocks of 8x8 pixels
-    Btemp = [[[i for i in j] for j in k] for k in B]
 
     # Step 4 all steps are done for every block
     C = [None for k in range(num)] # init the table where the ciphered blocks will be
@@ -196,7 +195,6 @@ def encrypt(K, img, R):
     C[kL][7][7], C[0][0][s] = C[0][0][s], C[kL][7][7]
 
     # Get encrypted image by reshaping C
-    return C, Btemp # TODO remove when decrypt is doing the opposite
     encrypted = [[C[k+l][i][j] for l in range(4) for i in range(8) for j in range(8)] for k in range(0, num, 4)]
 
     return encrypted
@@ -206,10 +204,12 @@ def encrypt(K, img, R):
 # Decryption algorithm
 # ====================
 
+
 def cycR(x, y):
     return (x % 2 ** y) * 2 ** (8 - y) + x // 2 ** y
 
-def decrypt(K, img, R):
+
+def decrypt(K, img):
     """ Encryption algorithm.
     For simplicity, we assume that images are 256x256 grayscale.
     img is the input image as a list of lists of values 0-255
@@ -236,8 +236,8 @@ def decrypt(K, img, R):
         x = ncml(x)
 
     # Step 3
-    # TODO: make image from encrypted and redo it here
-    C = img
+    IC = reduce(lambda a,b: a+b, img) # flatten image to generate the sequence I
+    C = [[[IC[i*64 + 8 * j + k] for k in range(8)] for j in range(8)] for i in range(num)] # generate the blocks of 8x8 pixels
 
     # Step 4
     Cd = [None for k in range(num)] # init the table to figure out what knew was for each block
@@ -271,9 +271,11 @@ def decrypt(K, img, R):
         for i in range(8):
             for j in range(8):
                 if i == 0:
-                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(Cprev[-1][(j - 1) % 8] ^ Phi[i][j])) - Cprev[-1][j] + G)) % G # special case for i == 0 where we have to get C[k-1]
+                    # special case for i == 0 where we have to get C[k-1]
+                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(Cprev[-1][(j - 1) % 8] ^ Phi[i][j])) - Cprev[-1][j] + G)) % G
                 else:
-                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(C[knew][i-1][(j - 1) % 8] ^ Phi[i][j])) - C[knew][i-1][j] + G)) % G # rest cases
+                    # rest cases
+                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(C[knew][i-1][(j - 1) % 8] ^ Phi[i][j])) - C[knew][i-1][j] + G)) % G
 
         Cprev = C[knew] # update the previous block to be used for calculating the next Ck
 
@@ -282,17 +284,16 @@ def decrypt(K, img, R):
         for i in range(8):
             if C[knew][7][i] > C[knew][7][(i + d) % 8]:
                 x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
-    return Cnew
 
+    # Create Iprime from Cnew to undo step 3 of encryption
+    Iprime = [j for k in Cnew for i in k for j in i]
+    # Undo step 3
+    I = [0 for i in Iprime]
+    ind = 0
+    for j in range(r):
+        for i in range(0, len(Iprime) - j, r):
+            I[i+j] = Iprime[ind]
+            ind += 1
 
-
-
-# 128bit key (randomly picked) split into 16 bytes
-K = [0x3f, 0xdf, 0x1d, 0xd5, 0xea, 0xa9, 0x16, 0x1d, 0x0d, 0x16, 0x03, 0x1b, 0xb3, 0x8e, 0xac, 0xf7]
-
-from random import randint as rand
-img = [[rand(0,255) for i in range(256)] for j in range(256)]
-enc, bt = encrypt(K, img, 1)
-print("\n\n")
-dec = decrypt(K, enc, 1)
-
+    # Reshape result to be an image again
+    return [[I[i * 256 + j] for j in range(256)] for i in range(256)]
