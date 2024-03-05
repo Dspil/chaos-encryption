@@ -1,0 +1,8 @@
+* Description
+
+Implementation of the algorithm described in [[https://www.sciencedirect.com/science/article/pii/S1568494609002658?fr=RR-2&ref=pdf_download&rr=85f57a664add83a9][A new chaos-based fast image encryption algorithm]]. The number of rounds of encryption-decryption is set to 1.
+
+* Structure
+
+The algorithm is written in ~chaos_encryption.py~.
+There is a test in ~test_chaos.py~ that checks whether the decryption of an encrypted image yields the original image.
