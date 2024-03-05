@@ -154,51 +154,46 @@ def encrypt(K, img, R):
     B = [[[Iprime[i*64 + 8 * j + k] for k in range(8)] for j in range(8)] for i in range(num)] # generate the blocks of 8x8 pixels
     Btemp = [[[i for i in j] for j in k] for k in B]
 
-    # Step 5 (comes early because we need to do step 4 R times)
-    for _ in range(R):
-        # Step 4 all steps are done for every block
-        C = [None for k in range(num)] # init the table where the ciphered blocks will be
-        Cprev = [[K[j + 8] for j in range(8)] for i in range(8)] # initialize the previous ciphered block to cover the case for B0 where the key K is used
-        for k in range(num):
-            Ck = [[0 for i in range(8)] for j in range(8)] # initialize the new cipher block to fill
+    # Step 4 all steps are done for every block
+    C = [None for k in range(num)] # init the table where the ciphered blocks will be
+    Cprev = [[K[j + 8] for j in range(8)] for i in range(8)] # initialize the previous ciphered block to cover the case for B0 where the key K is used
+    for k in range(num):
+        Ck = [[0 for i in range(8)] for j in range(8)] # initialize the new cipher block to fill
 
-            x = ncml(x) # iterate ncml once
-            Phi = get_64_pr_nums(x) # get the next 64 pseudo random numbers
+        x = ncml(x) # iterate ncml once
+        Phi = get_64_pr_nums(x) # get the next 64 pseudo random numbers
 
-            # Step 4 (ii)
-            # execute (14)
-            for i in range(8):
-                for j in range(8):
-                    if i == 0:
-                        Ck[i][j] = cycL(((B[k][i][j] ^ Phi[i][j]) + Cprev[-1][j]) % G, LSB3(Cprev[-1][(j-1) % 8] ^ Phi[i][j])) # special case for i == 0 where we have to get C[k-1]
-                    else:
-                        Ck[i][j] = cycL(((B[k][i][j] ^ Phi[i][j]) + Ck[i-1][j]) % G, LSB3(Ck[i - 1][(j-1) % 8] ^ Phi[i][j])) # rest of the cases
-            Cprev = Ck # update the previous block to be used for calculating the next Ck
+        # Step 4 (ii)
+        # execute (14)
+        for i in range(8):
+            for j in range(8):
+                if i == 0:
+                    Ck[i][j] = cycL(((B[k][i][j] ^ Phi[i][j]) + Cprev[-1][j]) % G, LSB3(Cprev[-1][(j-1) % 8] ^ Phi[i][j])) # special case for i == 0 where we have to get C[k-1]
+                else:
+                    Ck[i][j] = cycL(((B[k][i][j] ^ Phi[i][j]) + Ck[i-1][j]) % G, LSB3(Ck[i - 1][(j-1) % 8] ^ Phi[i][j])) # rest of the cases
+        Cprev = Ck # update the previous block to be used for calculating the next Ck
 
-            # Step 4 (iii)
-            # find the new position of the block
-            if k == num - 1:
-                knew = kL
-            else:
-                knew = int(x[0] * num)
-                while knew == kL or C[knew] != None:
-                    knew = (knew + 1) % num
-            C[knew] = Ck#
+        # Step 4 (iii)
+        # find the new position of the block
+        if k == num - 1:
+            knew = kL
+        else:
+            knew = int(x[0] * num)
+            while knew == kL or C[knew] != None:
+                knew = (knew + 1) % num
+        C[knew] = Ck#
 
-            # Step 4 (iv)
-            d = LSB3(Ck[7][0]) # (16)
-            for i in range(8):
-                if Ck[7][i] > Ck[7][(i + d) % 8]:
-                    x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
+        # Step 4 (iv)
+        d = LSB3(Ck[7][0]) # (16)
+        for i in range(8):
+            if Ck[7][i] > Ck[7][(i + d) % 8]:
+                x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
 
-        # Step 4 (v)
-        # Notice that this step is out of the for-loop, it is done in the end and not for every block
-        # in contrast to all the previous parts of step 4
-        s = LSB3(kL)
-        C[kL][7][7], C[0][0][s] = C[0][0][s], C[kL][7][7]
-
-        # Step 5 again. Get ready for next iteration by assigning C to B
-        B = C
+    # Step 4 (v)
+    # Notice that this step is out of the for-loop, it is done in the end and not for every block
+    # in contrast to all the previous parts of step 4
+    s = LSB3(kL)
+    C[kL][7][7], C[0][0][s] = C[0][0][s], C[kL][7][7]
 
     # Get encrypted image by reshaping C
     return C, Btemp # TODO remove when decrypt is doing the opposite
@@ -245,51 +240,49 @@ def decrypt(K, img, R):
     C = img
 
     # Step 4
-    for _ in range(R):
-        Cd = [None for k in range(num)] # init the table to figure out what knew was for each block
-        Cnew = [None for k in range(num)]
-        P = [None for k in range(num)]
+    Cd = [None for k in range(num)] # init the table to figure out what knew was for each block
+    Cnew = [None for k in range(num)]
 
-        # Step 4 (i)
-        s = LSB3(kL)
-        C[kL][7][7], C[0][0][s] = C[0][0][s], C[kL][7][7]
+    # Step 4 (i)
+    s = LSB3(kL)
+    C[kL][7][7], C[0][0][s] = C[0][0][s], C[kL][7][7]
 
-        Cprev = [[K[j + 8] for j in range(8)] for i in range(8)] # initialize the previous ciphered block to cover the case for B0 where the key K is used
-        for k in range(num):
-            Ck = [[0 for i in range(8)] for j in range(8)] # initialize the new cipher block to fill
+    Cprev = [[K[j + 8] for j in range(8)] for i in range(8)] # initialize the previous ciphered block to cover the case for B0 where the key K is used
+    for k in range(num):
+    
+        Ck = [[0 for i in range(8)] for j in range(8)] # initialize the new cipher block to fill
 
-            # Step 4 (ii)
-            x = ncml(x) # iterate ncml once
-            Phi = get_64_pr_nums(x) # get the next 64 pseudo random numbers
+        # Step 4 (ii)
+        x = ncml(x) # iterate ncml once
+        Phi = get_64_pr_nums(x) # get the next 64 pseudo random numbers
 
-            # Step 4 (iii)
-            # find the original position of the block
-            if k == num - 1:
-                knew = kL
-            else:
-                knew = int(x[0] * num)
-                while knew == kL or Cd[knew] != None:
-                    knew = (knew + 1) % num
-            Cd[knew] = True
-            Cnew[k] = Ck
-            
-            # execute (14)
-            for i in range(8):
-                for j in range(8):
-                    if i == 0:
-                        Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(Cprev[-1][(j - 1) % 8] ^ Phi[i][j])) - Cprev[-1][j] + G)) % G # special case for i == 0 where we have to get C[k-1]
-                    else:
-                        Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(C[knew][i-1][(j - 1) % 8] ^ Phi[i][j])) - C[knew][i-1][j] + G)) % G # rest cases
-            
-            Cprev = C[knew] # update the previous block to be used for calculating the next Ck
+        # Step 4 (iii)
+        # find the original position of the block
+        if k == num - 1:
+            knew = kL
+        else:
+            knew = int(x[0] * num)
+            while knew == kL or Cd[knew] != None:
+                knew = (knew + 1) % num
+        Cd[knew] = True
+        Cnew[k] = Ck
 
-            # Step 4 (v)
-            d = LSB3(C[knew][7][0]) # (16)
-            for i in range(8):
-                if C[knew][7][i] > C[knew][7][(i + d) % 8]:
-                    x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
-        C = Cnew
-    return C
+        # execute (14)
+        for i in range(8):
+            for j in range(8):
+                if i == 0:
+                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(Cprev[-1][(j - 1) % 8] ^ Phi[i][j])) - Cprev[-1][j] + G)) % G # special case for i == 0 where we have to get C[k-1]
+                else:
+                    Ck[i][j] = (Phi[i][j] ^ (cycR(C[knew][i][j], LSB3(C[knew][i-1][(j - 1) % 8] ^ Phi[i][j])) - C[knew][i-1][j] + G)) % G # rest cases
+
+        Cprev = C[knew] # update the previous block to be used for calculating the next Ck
+
+        # Step 4 (v)
+        d = LSB3(C[knew][7][0]) # (16)
+        for i in range(8):
+            if C[knew][7][i] > C[knew][7][(i + d) % 8]:
+                x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
+    return Cnew
 
 
 
