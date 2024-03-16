@@ -184,7 +184,7 @@ def encrypt(K, img):
 
         # Step 4 (iv)
         d = LSB3(Ck[7][0]) # (16)
-        for i in range(8):
+        for i in range(4):
             if Ck[7][i] > Ck[7][(i + d) % 8]:
                 x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
 
@@ -281,7 +281,7 @@ def decrypt(K, img):
 
         # Step 4 (v)
         d = LSB3(C[knew][7][0]) # (16)
-        for i in range(8):
+        for i in range(4):
             if C[knew][7][i] > C[knew][7][(i + d) % 8]:
                 x[i], x[(i + d) % 8] = x[(i + d) % 8], x[i] # exchange values in the lattice
 
